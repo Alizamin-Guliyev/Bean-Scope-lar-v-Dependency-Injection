@@ -1,5 +1,6 @@
 package az.iktex.coreplatform.simasignapi.controller;
 
+import az.iktex.coreplatform.simasignapi.component.RequestContext;
 import az.iktex.coreplatform.simasignapi.dto.request.CreateUserRequest;
 import az.iktex.coreplatform.simasignapi.dto.response.UserInfoResponse;
 import az.iktex.coreplatform.simasignapi.logging.RecentlyViewedUsers;
@@ -14,30 +15,49 @@ import java.util.List;
 public class UserInfoController {
     private final UserInfoService userInfoService;
     private final RecentlyViewedUsers recentlyViewedUsers;
+    private final RequestContext requestContext;
 
-    public UserInfoController(UserInfoService userInfoService, RecentlyViewedUsers recentlyViewedUsers) {
+    public UserInfoController(UserInfoService userInfoService, RecentlyViewedUsers recentlyViewedUsers, RequestContext requestContext) {
         this.userInfoService = userInfoService;
         this.recentlyViewedUsers = recentlyViewedUsers;
+        this.requestContext = requestContext;
         System.out.println("UserInfoController yaradildi, hashCode: " + this.hashCode());
     }
 
     @GetMapping("/{id}")
     public UserInfoResponse getUserById(@PathVariable Long id){
+        System.out.println("[Controller] requestId=" + requestContext.getRequestId());
+        System.out.println("[Controller] requestContext class: " + requestContext.getClass().getName());
         recentlyViewedUsers.addUser(id);
-        return userInfoService.getUserById(id);
+        UserInfoResponse response = userInfoService.getUserById(id);
+        logDuration();
+        return response;
     }
 
     @GetMapping("/all")
     public List<UserInfoResponse> getAllUsers(){
-        return userInfoService.getAllUsers();
+        List<UserInfoResponse> response = userInfoService.getAllUsers();
+        logDuration();
+        return response;
     }
 
     @PostMapping("/create")
     @ResponseStatus(HttpStatus.CREATED)
     public UserInfoResponse createUser(@RequestBody CreateUserRequest createUserRequest){
-        return userInfoService.createUser(createUserRequest);
+        UserInfoResponse response = userInfoService.createUser(createUserRequest);
+        logDuration();
+        return response;
     }
 
     @GetMapping("/recent")
-    public List<Long> getUsersIdsRecent(){ return recentlyViewedUsers.getUsers();}
+    public List<Long> getUsersIdsRecent(){
+        List<Long> response = recentlyViewedUsers.getUsers();
+        logDuration();
+        return response;
+    }
+
+    private void logDuration() {
+        long duration = System.currentTimeMillis() - requestContext.getStartTime();
+        System.out.println("[Controller] requestId=" + requestContext.getRequestId() + " " + duration + " ms cekdi");
+    }
 }

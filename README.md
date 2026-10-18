@@ -78,3 +78,39 @@ Nəticədə elementlər itir, `size()` səhv göstərir, `get()` `null` qaytarı
 - Bu obyektlər istifadə bitəndən sonra Java Garbage Collector tərəfindən silinir.
 - Prototype bean resurs tutursa (fayl, DB connection və s.), 
 - onu bağlamaq bizim məsuliyyətimizdir.
+
+
+## Tapşırıq 18 — @RequestScope-u @Scope("request") ilə əvəz et (proxyMode olmadan).
+
+**Səbəb:**
+-Tətbiq açılmayıb. Xətanın səbəbi: 
+-RequestContext bean-i @Scope("request") ilə yaradılıb, amma proxyMode əlavə edilməyib.
+- Xəta: ScopeNotActiveException
+- Request scope aktiv olmayan vaxt Spring RequestContext bean-ini yaratmağa çalışır.
+- Səbəb: @Scope("request") istifadə olunub, lakin proxyMode təyin edilməyib.
+- Nəticə: Singleton bean-lərə injection zamanı tətbiq başladılmır.
+
+-ScopeNotActiveException:
+-Scope 'request' is not active for the current thread;
+-consider defining a scoped proxy for this bean
+
+Niyə bu düzəliş işləyir?
+- @Scope("request") — hər HTTP sorğusu üçün ayrıca RequestContext instansının olmasını təmin edir.
+- proxyMode = ScopedProxyMode.TARGET_CLASS — proxy yaradır ki, singleton bean-lər RequestContext-ə 
+- təhlükəsiz şəkildə istinad edə bilsinlər.
+- HTTP sorğusu gələndə proxy həmin sorğuya aid RequestContext instansına yönəlir.
+
+
+## Tapşırıq 18 — `requestContext.getClass()` və scoped proxy
+
+Controller-in `getUserById` metodunda `requestContext.getClass().getName()` çap edildi.
+`az.iktex.coreplatform.simasignapi.component.RequestContext$$SpringCGLIB$$0`.
+Bu, əsl `RequestContext` deyil, Spring-in CGLIB ilə yaratdığı **proxy** sinfidir, 
+yəni `RequestContext`-in alt sinfi.
+
+ Singleton-a request bean necə inject oluna bilir?:
+- Controller singleton-dur və tətbiq açılanda bir dəfə yaradılır. O anda heç bir HTTP sorğusu yoxdur, ona görə əsl `RequestContext` obyekti də yoxdur.
+- `@RequestScope` default olaraq `proxyMode = ScopedProxyMode.TARGET_CLASS` istifadə edir. Spring CGLIB ilə `RequestContext`-in alt sinfini yaradır və singleton-a bu **proxy**-ni bir dəfə inject edir.
+- Proxy-nin hər metodu, məsələn `getRequestId()`, çağırılanda o, cari thread-ə bağlı HTTP sorğusunu tapır (`RequestContextHolder`). Sonra həmin sorğunun `RequestContext` obyektini götürür, yoxdursa yaradır, və çağırışı ona yönləndirir.
+- Nəticədə sahə həmişə eyni proxy-dir, amma hər sorğu öz real obyektini görür.
+- Prototype-da proxy default olaraq yoxdur. Ona görə orada birbaşa inject zamanı bir obyekt "ilişib qalırdı" (Tapşırıq 11) və `ObjectProvider` lazım oldu.

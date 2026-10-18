@@ -1,5 +1,6 @@
 package az.iktex.coreplatform.simasignapi.repository;
 
+import az.iktex.coreplatform.simasignapi.component.RequestContext;
 import az.iktex.coreplatform.simasignapi.dto.request.CreateUserRequest;
 import az.iktex.coreplatform.simasignapi.dto.response.UserInfoResponse;
 import jakarta.annotation.PostConstruct;
@@ -18,8 +19,10 @@ public class UserRepository {
 
     private final Map<Long, UserInfoResponse> storage = new ConcurrentHashMap<>();
     private final AtomicLong idGenerator = new AtomicLong(0);
+    private final RequestContext requestContext;
 
-    public UserRepository() {
+    public UserRepository(RequestContext requestContext) {
+        this.requestContext = requestContext;
         System.out.println("UserRepository yaradildi, hashCode: " + this.hashCode());
     }
 
@@ -50,6 +53,7 @@ public class UserRepository {
     }
 
     public UserInfoResponse getUserById(Long id){
+        System.out.println("[Repository] requestId=" + requestContext.getRequestId());
         UserInfoResponse user = storage.get(id);
         if (user == null) {
             throw new NoSuchElementException("User tapilmadi, id: " + id);

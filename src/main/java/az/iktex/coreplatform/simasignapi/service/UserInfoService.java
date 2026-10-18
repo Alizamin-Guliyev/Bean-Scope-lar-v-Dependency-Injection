@@ -2,7 +2,7 @@ package az.iktex.coreplatform.simasignapi.service;
 
 import az.iktex.coreplatform.simasignapi.dto.request.CreateUserRequest;
 import az.iktex.coreplatform.simasignapi.dto.response.UserInfoResponse;
-import az.iktex.coreplatform.simasignapi.logging.RequestContext;
+import az.iktex.coreplatform.simasignapi.component.RequestContext;
 import az.iktex.coreplatform.simasignapi.component.UserAuditLog;
 import az.iktex.coreplatform.simasignapi.repository.UserRepository;
 import org.springframework.beans.factory.ObjectProvider;
@@ -25,7 +25,7 @@ public class UserInfoService {
     }
 
     public UserInfoResponse getUserById(Long id) {
-        // System.out.println("TraceID" + requestContext.getTraceId());
+        System.out.println("[Service] requestId=" + requestContext.getRequestId());
         return userRepository.getUserById(id);
     }
 
