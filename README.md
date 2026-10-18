@@ -190,3 +190,58 @@ UserRepository bean sayi: 2
 - Siyahının sırası `@Order` ilə idarə olunur. `@Order` olmayanda sıra bean-lərin qeydiyyat sırasıdır.
 - Bu yanaşma bir interface-in bütün implementasiyalarını birlikdə işlətmək lazım olanda faydalıdır, məsələn bir neçə validator və ya bildiriş kanalı olanda.
 - Eyni qayda `Map<String, UserRepository>` üçün də işləyir: açar bean adı, dəyər bean-in özü olur.
+
+## Tapşırıq 34 — `GET /api/v1/scope-demo`
+
+Endpoint 4 dəyər qaytarır:
+- `singletonHashCode`: `UserInfoService`-in hashCode-u;
+- `prototypeAuditId1` və `prototypeAuditId2`: eyni sorğuda `ObjectProvider<UserAuditLog>.getObject()` ilə iki dəfə alınan obyektlərin auditId-ləri;
+- `requestId`: `RequestContext`-dən.
+
+| `UserInfoService` | singleton | Heç vaxt dəyişmir: tətbiq boyu bir obyekt var. |
+| `UserAuditLog` | prototype | Hər `getObject()` yeni obyekt verir, ona görə eyni sorğuda da iki auditId fərqlidir. 3 çağırışda cəmi 6 fərqli auditId olur. |
+| `RequestContext` | request | Bir sorğu daxilində eynidir, hər yeni sorğuda dəyişir. |
+
+## Tapşırıq 35 — `UserStatistics` və `GET /api/v1/stats`
+
+`UserStatistics` (`@Component @ApplicationScope`) iki `AtomicLong` sayğac saxlayır: `createdUsers` və `getUserByIdCalls`. `UserInfoService` `createUser` və `getUserById`-də bu sayğacları artırır. `GET /api/v1/stats` hər ikisini qaytarır.
+
+**Niyə sayğac bütün brauzerlərdə ümumidir:**
+
+- Application scope-da bütün tətbiq (`ServletContext`) üçün bir obyekt yaradılır. Chrome, incognito, Postman və başqa sessiyalar eyni obyekti görür.
+- Session scope-dan fərqi budur: session scope-da hər istifadəçinin öz obyekti olur.
+- `AtomicLong` istifadə olunur, çünki bir neçə sorğu (thread) eyni anda sayğacı artıra bilər. Adi `long++` belə halda dəyərləri itirərdi.
+- Singleton-dan fərqi: application scope `ServletContext`-ə bağlıdır və proxy ilə inject olunur. Bir tətbiqdə nəticə praktik olaraq eynidir.
+
+## Tapşırıq 36 — `@ConditionalOnProperty` ilə repository seçimi
+
+`application.yaml`:
+yaml
+app:
+  repository-type: memory   # və ya mock
+
+- `InMemoryUserRepository`-də `@ConditionalOnProperty(name = "app.repository-type", havingValue = "memory", matchIfMissing = true)` var. Property yazılmasa da default bu bean yaradılır.
+- `MockUserRepository`-də `havingValue = "mock"` var.
+- Spring tətbiq açılanda şərti yoxlayır və yalnız bir bean yaradır. Ona görə `@Qualifier` və `@Primary` lazım olmadı və `UserInfoService`-dən `@Qualifier` silindi.
+- Tapşırıq 33-dəki `List<UserRepository>` də artıq 1 element göstərəcək.
+- Yoxlamaq üçün dəyəri `mock` et və restart et. `/all` "Mock User" qaytarmalıdır.
+
+## Tapşırıq 37 — `BeanPostProcessor`
+
+`config/LoggingBeanPostProcessor` hər bean üçün iki dəfə çağırılır, amma yalnız sinfi `az.iktex` ilə başlayan bean-lər üçün log yazır:
+- `postProcessBeforeInitialization`: konstruktordan və dependency injection-dan sonra, `@PostConstruct`-dan əvvəl;
+- `postProcessAfterInitialization`: `@PostConstruct`-dan sonra.
+
+**Bir bean üçün konsoldakı ardıcıllıq:**
+
+InMemoryUserRepository yaradildi, hashCode: ...    konstruktor
+[BPP] before init: inMemoryUserRepository
+UserRepository hazirdir, 3 user yuklendi           @PostConstruct
+[BPP] after init: inMemoryUserRepository
+
+**Bean-lər arasında ardıcıllıq:**
+
+- Spring bir bean-i yaratmazdan əvvəl onun asılılıqlarını yaradır. Ona görə əvvəlcə repository, sonra service, sonra controller logları görünür. Asılılıq zənciri belədir: `UserInfoController` → `UserInfoService` → `UserRepository`.
+- `BeanPostProcessor`-un özü bütün adi bean-lərdən əvvəl yaradılır, çünki sonra yaradılan hər bean onun içindən keçməlidir.
+- Request, session və application scope-lu bean-lər (`RequestContext`, `RecentlyViewedUsers`, `UserStatistics`) açılışda yaradılmır, onlar üçün açılışda yalnız proxy olur. Onların BPP logu ilk istifadədə, sorğu zamanı görünür.
+- Prototype `UserAuditLog` hər `getObject()` çağırışında yaradılır, ona görə onun BPP logu da hər dəfə təkrarlanır, məsələn `/scope-demo`-da hər sorğuda 2 dəfə.

@@ -2,12 +2,14 @@ package az.iktex.coreplatform.simasignapi.repository;
 
 import az.iktex.coreplatform.simasignapi.dto.request.CreateUserRequest;
 import az.iktex.coreplatform.simasignapi.dto.response.UserInfoResponse;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
+@ConditionalOnProperty(name = "app.repository-type", havingValue = "mock")
 public class MockUserRepository implements UserRepository {
 
     @Override

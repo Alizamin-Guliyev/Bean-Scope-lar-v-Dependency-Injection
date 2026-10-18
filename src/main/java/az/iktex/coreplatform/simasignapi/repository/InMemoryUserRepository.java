@@ -5,6 +5,7 @@ import az.iktex.coreplatform.simasignapi.dto.request.CreateUserRequest;
 import az.iktex.coreplatform.simasignapi.dto.response.UserInfoResponse;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -15,6 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Repository
+@ConditionalOnProperty(name = "app.repository-type", havingValue = "memory", matchIfMissing = true)
 public class InMemoryUserRepository implements UserRepository {
 
     private final Map<Long, UserInfoResponse> storage = new ConcurrentHashMap<>();

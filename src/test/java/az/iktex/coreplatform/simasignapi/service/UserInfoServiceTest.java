@@ -2,6 +2,7 @@ package az.iktex.coreplatform.simasignapi.service;
 
 import az.iktex.coreplatform.simasignapi.component.RequestContext;
 import az.iktex.coreplatform.simasignapi.component.UserAuditLog;
+import az.iktex.coreplatform.simasignapi.component.UserStatistics;
 import az.iktex.coreplatform.simasignapi.dto.response.UserInfoResponse;
 import az.iktex.coreplatform.simasignapi.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,7 +29,7 @@ class UserInfoServiceTest {
         RequestContext requestContext = mock(RequestContext.class);
         when(requestContext.getRequestId()).thenReturn("test1234");
 
-        userInfoService = new UserInfoService(userRepository, auditLogProvider, requestContext, List.of(userRepository));
+        userInfoService = new UserInfoService(userRepository, auditLogProvider, requestContext, List.of(userRepository), mock(UserStatistics.class));
     }
 
     @Test

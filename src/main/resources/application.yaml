@@ -8,3 +8,5 @@ server:
 spring:
   application:
     name: test_demo_api
+app:
+  repository-type: memory
