@@ -1,0 +1,8 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /test-demo
+      
+spring:
+  application:
+    name: test_demo_api
