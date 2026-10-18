@@ -140,3 +140,53 @@ Siyahı heç vaxt dolmazdı və `/recent` həmişə `[]` qaytarardı.
 - `GET /recent` ayrı sorğudur, ona görə öz yeni və boş siyahısını alır.
 - Nəticədə "son baxılanlar" funksiyası işləmir. Məlumat sorğular arasında yaşamalıdır, ona görə istifadəçi başına bir obyekt saxlayan session scope lazımdır.
 - Hər sorğuda `@PreDestroy` log-u da çıxardı, çünki bean hər sorğunun sonunda məhv olunur.
+
+## Tapşırıq 27 — `MockUserRepository` və `NoUniqueBeanDefinitionException`
+
+İndi `UserRepository` interface-inin iki bean-i var: `inMemoryUserRepository` və `mockUserRepository`. `UserInfoService` konstruktorda `UserRepository` istəyir. Spring tipə görə axtarır və iki uyğun bean tapır. Hansını verəcəyini bilmədiyi üçün tətbiq açılmır:
+
+```
+Parameter 0 of constructor in ...service.UserInfoService required a single bean, but 2 were found:
+	- inMemoryUserRepository: defined in file [.../InMemoryUserRepository.class]
+	- mockUserRepository: defined in file [.../MockUserRepository.class]
+```
+
+Bu `NoUniqueBeanDefinitionException` xətasıdır. Həll yolları: birinə `@Primary` qoymaq, inject edilən yerdə `@Qualifier("...")` yazmaq, parametr adını bean adı ilə eyni etmək və ya `@Profile` ilə yalnız birini aktiv etmək.
+
+## Tapşırıq 32 — Spring-siz unit test və field injection
+
+`UserInfoServiceTest` Spring konteynerini qaldırmır. Asılılıqları `Mockito.mock(...)` 
+ilə yaradır və service-ə `new UserInfoService(userRepository, auditLogProvider, requestContext)` ilə özü ötürür.
+
+**Field injection-a keçəndə test niyə işləmir:**
+java
+@Autowired
+private UserRepository userRepository;
+- Belə olanda dəyəri field-ə Spring reflection ilə qoyur. Unit testdə Spring yoxdur, ona görə bunu edən olmur.
+- Asılılıqları qəbul edən konstruktor da qalmır. `new UserInfoService(mock)` artıq kompilyasiya olunmur.
+- Parametrsiz `new UserInfoService()` ilə yaratsaq, `userRepository` `null` qalır və `getUserById` çağırılanda `NullPointerException` atılır.
+- Field `private` olduğu üçün mock-u testdən birbaşa təyin etmək də olmur. Yalnız reflection və ya `@InjectMocks` ilə mümkündür.
+
+**Constructor injection niyə yaxşıdır:**
+- Asılılıqlar açıq görünür.
+- Field-lər `final` ola bilir.
+- Obyekt yarımçıq yaradıla bilmir.
+- Test Spring-siz, adi Java kimi yazılır.
+Ona görə service constructor injection-da saxlanıldı.
+
+## Tapşırıq 33 — `List<UserRepository>` injection
+
+`UserInfoService` konstruktoruna `List<UserRepository> allRepositories` parametri əlavə edildi və onun ölçüsü konsola çap olunur. Gözlənilən nəticə:
+
+UserRepository bean sayi: 2
+ - InMemoryUserRepository
+ - MockUserRepository
+
+**Niyə 2 element gəlir:**
+
+- Parametr tək `UserRepository` olanda Spring bir bean seçməlidir. İki bean olduğu üçün `@Primary` və ya `@Qualifier` olmadan `NoUniqueBeanDefinitionException` atılır.
+- Parametr `List<UserRepository>` olanda Spring seçim etmir. `UserRepository` tipində olan bütün bean-ləri siyahıya yığır və ötürür. Ona görə xəta yaranmır.
+- `@Qualifier("mockUserRepository")` yalnız tək `UserRepository` parametrinə aiddir, siyahıya təsir etmir.
+- Siyahının sırası `@Order` ilə idarə olunur. `@Order` olmayanda sıra bean-lərin qeydiyyat sırasıdır.
+- Bu yanaşma bir interface-in bütün implementasiyalarını birlikdə işlətmək lazım olanda faydalıdır, məsələn bir neçə validator və ya bildiriş kanalı olanda.
+- Eyni qayda `Map<String, UserRepository>` üçün də işləyir: açar bean adı, dəyər bean-in özü olur.
