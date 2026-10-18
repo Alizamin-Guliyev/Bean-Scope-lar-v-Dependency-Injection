@@ -15,18 +15,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @Repository
 public class UserRepository {
-    // Sual: Adi HashMap ve long counter burda niye tehlukelidir? Singleton bean-i eyni anda nece thread istifade edir?
-    // Cavab:
-    // - UserRepository singleton-dur: butun tetbiqde 1 obyekt var. Tomcat her HTTP sorgunu ayri thread-de
-    //   isleyir (default thread pool max 200). Yeni eyni anda gelen sorgularin hamisi (200-e qeder thread)
-    //   EYNI obyekti ve EYNI storage/sayaci paralel istifade edir.
-    // - long counter: "id++" bir emeliyyat deyil, 3 addimdir: oxu -> 1 artir -> geri yaz. Iki thread eyni anda
-    //   5 oxusa, ikisi de 6 yazacaq. Iki user eyni ID alir, biri o birini Map-de silib ustune yazir (data itir).
-    //   Hemcinin bir thread-in yazdigi deyeri diger thread gormeye biler (visibility problemi).
-    // - HashMap: paralel put() zamani daxili strukturu (bucket-ler, resize) pozula biler: elementler itir,
-    //   size() sehv olur, get() null qaytarir, hetta sonsuz dovr/exception ola biler.
-    // - Hell: ConcurrentHashMap paralel oxuma/yazmani tehlukesiz edir, AtomicLong.incrementAndGet() ise artirmani
-    //   CAS ile tek, bolunmez (atomik) addimda edir, ona gore her thread ferqli ID alir.
+
     private final Map<Long, UserInfoResponse> storage = new ConcurrentHashMap<>();
     private final AtomicLong idGenerator = new AtomicLong(0);
 

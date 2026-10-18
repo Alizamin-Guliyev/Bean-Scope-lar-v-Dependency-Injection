@@ -41,3 +41,40 @@ Nəticədə elementlər itir, `size()` səhv göstərir, `get()` `null` qaytarı
 çıxır.
 - `ConcurrentHashMap` paralel oxuma və yazmanı təhlükəsiz edir.
 - `AtomicLong.incrementAndGet()` artırmanı CAS ilə tək, bölünməz addımda edir. Ona görə hər thread fərqli ID alır.
+
+## Tapşırıq 11 — Prototype bean-i singleton-a birbaşa inject etmək
+
+`UserAuditLog` (`@Scope("prototype")`) `UserInfoService`-in konstruktoruna 
+`ObjectProvider` olmadan, birbaşa inject edildi. `createUser` hər çağırılanda 
+`auditId` konsola yazılır. 3 user `POST /create` ilə yaradıldı.
+
+ Hər 3 sorğuda eyni `auditId` çıxır, "UserAuditLog yaradildi" logu isə yalnız bir dəfə, 
+ tətbiq açılanda görünür.
+
+**Səbəb:**
+- `UserInfoService` singleton-dur və onun konstruktoru yalnız bir dəfə çağırılır.
+- Spring konstruktor üçün bir dənə `UserAuditLog` yaradır və onu sahəyə yazır.
+- Prototype scope "hər **inject** zamanı yeni obyekt" deməkdir, "hər metod çağırışında" demək deyil.
+- Singleton bir dəfə inject olunduğu üçün prototype obyekt də praktik olaraq singleton kimi işləyir.
+- Bundan əlavə, eyni obyektin `action` sahəsini bütün thread-lər paralel dəyişir, bu da thread-safe deyil.
+
+**Həll:** hər dəfə yeni obyekt almaq üçün aşağıdakılardan birini istifadə etmək lazımdır:
+- `ObjectProvider<UserAuditLog>` və `getObject()`,
+- `@Lookup` metodu,
+- `@Scope(value = "prototype", proxyMode = ScopedProxyMode.TARGET_CLASS)`.
+
+## Tapşırıq 13 — Prototype bean-lərin destroy-u (`@PreDestroy`)
+`UserAuditLog`-a `@PreDestroy destroy()` metodu əlavə edildi: 
+`"UserAuditLog destroy: " + auditId`. Sonra tətbiq bağlandı.
+
+`UserRepository`-nin `@PreDestroy` logu çıxır, `UserAuditLog`-unku isə çıxmır.
+**Səbəb:**
+- Spring prototype bean-i yaradır, asılılıqlarını inject edir, 
+- `@PostConstruct`-u çağırır və obyekti tələb edənə verir. 
+- Bundan sonra o obyekti heç yerdə saxlamır.
+- Context bağlananda Spring yalnız özünün idarə etdiyi bean-ləri,
+- yəni singleton-ları destroy edir. Prototype obyektlərin siyahısı 
+- olmadığı üçün onların `@PreDestroy` metodu heç vaxt çağırılmır.
+- Bu obyektlər istifadə bitəndən sonra Java Garbage Collector tərəfindən silinir.
+- Prototype bean resurs tutursa (fayl, DB connection və s.), 
+- onu bağlamaq bizim məsuliyyətimizdir.
