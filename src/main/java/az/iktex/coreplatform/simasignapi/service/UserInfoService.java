@@ -33,6 +33,12 @@ public class UserInfoService {
         return userRepository.getAllUsers();
     }
 
+    public List<UserInfoResponse> getUsersByIds(List<Long> ids) {
+        return ids.stream()
+                .map(userRepository::getUserById)
+                .toList();
+    }
+
     public UserInfoResponse createUser(CreateUserRequest createUserRequest) {
         UserAuditLog userAuditLog = userAuditLogProvider.getObject();
         userAuditLog.setAction("CREATE_USER");

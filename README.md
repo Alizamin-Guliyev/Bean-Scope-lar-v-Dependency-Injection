@@ -101,7 +101,7 @@ Niyə bu düzəliş işləyir?
 - HTTP sorğusu gələndə proxy həmin sorğuya aid RequestContext instansına yönəlir.
 
 
-## Tapşırıq 18 — `requestContext.getClass()` və scoped proxy
+## Tapşırıq 19 — `requestContext.getClass()` və scoped proxy
 
 Controller-in `getUserById` metodunda `requestContext.getClass().getName()` çap edildi.
 `az.iktex.coreplatform.simasignapi.component.RequestContext$$SpringCGLIB$$0`.
@@ -114,3 +114,29 @@ yəni `RequestContext`-in alt sinfi.
 - Proxy-nin hər metodu, məsələn `getRequestId()`, çağırılanda o, cari thread-ə bağlı HTTP sorğusunu tapır (`RequestContextHolder`). Sonra həmin sorğunun `RequestContext` obyektini götürür, yoxdursa yaradır, və çağırışı ona yönləndirir.
 - Nəticədə sahə həmişə eyni proxy-dir, amma hər sorğu öz real obyektini görür.
 - Prototype-da proxy default olaraq yoxdur. Ona görə orada birbaşa inject zamanı bir obyekt "ilişib qalırdı" (Tapşırıq 11) və `ObjectProvider` lazım oldu.
+
+## Tapşırıq 24 — Session: Chrome, incognito və Postman
+**Chrome nəticəsi:** 3 user, ən yenisi əvvəldə: `[Ali (1), Vali (2), Leyla (3)]`. `1` 
+iki dəfə açılsa da siyahıda bir dəfə var, son baxış olduğu üçün birincidir.
+
+**Incognito nəticəsi:** `[]`, yəni boş siyahı.
+- Server ilk sorğuda sessiya yaradır və cavabda `Set-Cookie: JSESSIONID=...` göndərir. 
+- Brauzer sonrakı sorğularda bu cookie-ni geri göndərir, Spring də onunla həmin sessiyanın `RecentlyViewedUsers` obyektini tapır.
+- Incognito pəncərəsi adi pəncərənin cookie-lərini görmür. Ona görə `JSESSIONID` yoxdur, server yeni sessiya və yeni, boş `RecentlyViewedUsers` yaradır.
+
+**Postman-də niyə boş gələ bilər:**
+- Postman cookie-ni saxlamır və ya göndərmir. Məsələn, cookie jar söndürülüb, 
+- ya da Postman-in Settings bölməsində "Send cookies" bağlıdır. Bu halda hər sorğu yeni sessiya sayılır.
+- Sessiyanın vaxtı bitib. `session.timeout: 1m` olduğu üçün son sorğudan 1 dəqiqə sonra sessiya silinir.
+- Tətbiq restart olunub. Sessiyalar yaddaşda saxlanılır, restartda itir.
+- Chrome-un sessiyası Postman-ə keçmir. Postman öz cookie-ləri ilə ayrı client-dir, Chrome-da baxılan ID-lər Postman-də görünmür.
+
+
+## Tapşırıq 25 — `RecentlyViewedUsers` request scope-da olsaydı
+
+Siyahı heç vaxt dolmazdı və `/recent` həmişə `[]` qaytarardı.
+- Request scope-da bean hər HTTP sorğu üçün yenidən yaradılır və sorğu bitəndə məhv edilir.
+- `GET /1` çağırılanda ID yeni, boş siyahıya əlavə olunur. Sorğu bitəndə o siyahı da silinir.
+- `GET /recent` ayrı sorğudur, ona görə öz yeni və boş siyahısını alır.
+- Nəticədə "son baxılanlar" funksiyası işləmir. Məlumat sorğular arasında yaşamalıdır, ona görə istifadəçi başına bir obyekt saxlayan session scope lazımdır.
+- Hər sorğuda `@PreDestroy` log-u da çıxardı, çünki bean hər sorğunun sonunda məhv olunur.

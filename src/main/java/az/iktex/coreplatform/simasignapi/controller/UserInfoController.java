@@ -3,7 +3,7 @@ package az.iktex.coreplatform.simasignapi.controller;
 import az.iktex.coreplatform.simasignapi.component.RequestContext;
 import az.iktex.coreplatform.simasignapi.dto.request.CreateUserRequest;
 import az.iktex.coreplatform.simasignapi.dto.response.UserInfoResponse;
-import az.iktex.coreplatform.simasignapi.logging.RecentlyViewedUsers;
+import az.iktex.coreplatform.simasignapi.component.RecentlyViewedUsers;
 import az.iktex.coreplatform.simasignapi.service.UserInfoService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -28,8 +28,8 @@ public class UserInfoController {
     public UserInfoResponse getUserById(@PathVariable Long id){
         System.out.println("[Controller] requestId=" + requestContext.getRequestId());
         System.out.println("[Controller] requestContext class: " + requestContext.getClass().getName());
-        recentlyViewedUsers.addUser(id);
         UserInfoResponse response = userInfoService.getUserById(id);
+        recentlyViewedUsers.addUser(id);
         logDuration();
         return response;
     }
@@ -50,8 +50,8 @@ public class UserInfoController {
     }
 
     @GetMapping("/recent")
-    public List<Long> getUsersIdsRecent(){
-        List<Long> response = recentlyViewedUsers.getUsers();
+    public List<UserInfoResponse> getRecentUsers(){
+        List<UserInfoResponse> response = userInfoService.getUsersByIds(recentlyViewedUsers.getUsers());
         logDuration();
         return response;
     }
